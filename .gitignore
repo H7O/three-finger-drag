@@ -1,0 +1,6 @@
+# build output
+/three-finger-drag
+*.o
+
+# local editor/agent config
+/.claude/

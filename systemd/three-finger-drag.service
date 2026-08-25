@@ -1,0 +1,46 @@
+[Unit]
+Description=macOS-style three-finger drag for the touchpad
+Documentation=https://github.com/-/three-finger-drag
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/three-finger-drag
+Restart=always
+RestartSec=2
+
+# The daemon needs root to read the touchpad and write to /dev/uinput.
+# Everything below exists so that "root" means as little as possible:
+# it can touch input devices and nothing else. It reads only the touchpad,
+# never the keyboard.
+DevicePolicy=closed
+DeviceAllow=/dev/uinput rw
+DeviceAllow=char-input r
+
+CapabilityBoundingSet=
+AmbientCapabilities=
+NoNewPrivileges=true
+
+ProtectSystem=strict
+ProtectHome=true
+ProtectProc=invisible
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+
+PrivateTmp=true
+PrivateNetwork=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+MemoryDenyWriteExecute=true
+LockPersonality=true
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target
