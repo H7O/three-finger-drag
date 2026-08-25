@@ -63,7 +63,7 @@ static struct {
     .device       = NULL,
     .sensitivity  = 1.0,
     .threshold_mm = 1.5,
-    .grace_ms     = 400,
+    .grace_ms     = 500,
     .settle_ms    = 40,
     .max_drag_ms  = 30000,
     .debug        = false,

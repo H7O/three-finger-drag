@@ -53,13 +53,15 @@ If it crashes, you lose the feature and nothing else.
 |---|---|
 | 3 fingers down, movement passes threshold | button down, drag begins |
 | dragging, drop to 1–2 fingers | drag ends after `--settle-ms` (default 40 ms) |
-| dragging, all fingers lift | button held for `--grace-ms` (default 400 ms) |
+| dragging, all fingers lift | button held for `--grace-ms` (default 500 ms) |
 | 3 fingers return within the grace window | drag continues, uninterrupted |
 | grace expires | button released, drag ends |
 | anything held longer than `--max-drag-ms` | force-released as a safety net |
 
 The grace window is what makes it feel like a Mac: you can lift, reposition, and carry on.
-Measured on real hands, re-applying three fingers takes about 350 ms — hence the 400 ms default.
+Measured on real hands, re-applying three fingers takes about 350 ms, and a 400 ms budget
+proved too tight in practice — hence 500 ms, which leaves comfortable headroom without
+making an ordinary drop feel slow.
 
 **A deliberate deviation from libinput's native behaviour:** libinput keeps dragging when
 you drop to two fingers. This daemon ends the drag instead, because it runs *alongside*
@@ -94,7 +96,7 @@ That runs in the foreground and logs every state transition with timestamps.
 -d, --device PATH      touchpad event device (default: autodetect)
 -s, --sensitivity N    cursor speed multiplier (default: 1.0)
 -t, --threshold N      mm of movement before a drag starts (default: 1.5)
--g, --grace-ms N       keep dragging N ms after all fingers lift (default: 400)
+-g, --grace-ms N       keep dragging N ms after all fingers lift (default: 500)
     --settle-ms N      keep dragging N ms after dropping to 1-2 fingers (default: 40)
     --max-drag-ms N    force-release the button after N ms (default: 30000)
 -v, --debug            log state transitions and stay in the foreground
