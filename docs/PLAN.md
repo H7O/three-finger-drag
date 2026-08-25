@@ -1,5 +1,10 @@
 # Three-Finger Drag for the Touchpad
 
+> **Design note, kept as a record.** This was written *before* the daemon existed, to
+> decide the approach: why libinput 1.25 ruled out the native feature, why Cinnamon's
+> gesture system could not express a drag, and why a small dependency-free daemon won.
+> The work it describes is done — see the [README](../README.md) for how to use the result.
+
 Goal: drag-and-drop by moving three fingers on the touchpad, the way a MacBook
 trackpad does it — then switch off double-tap-and-drag once it works.
 
@@ -21,7 +26,7 @@ Measured, not assumed:
 | Multitouch | `BTN_TOOL_TRIPLETAP`, `QUADTAP`, `QUINTTAP`, MT-B slots | **Hardware reports 3+ fingers natively** |
 | `/dev/uinput` | present, `crw------- root root` | Injection possible; needs root or a udev rule |
 | `uinput` driver | **built into the kernel** | No module to load |
-| User groups | `d adm cdrom sudo dip video plugdev users lpadmin sambashare render` | **not** in `input` |
+| User groups | desktop user is **not** in the `input` group | privilege has to come from somewhere else |
 | Current setting | `tap-and-drag = true` | This is the double-tap-drag to retire at the end |
 
 ## 2. Why the easy answers don't work
@@ -99,10 +104,12 @@ The grace window is what makes it feel like a Mac — you can reposition mid-dra
 ### Files
 
 ```
-/home/d/code/mouse/
-├── PLAN.md                       ← this file
+three-finger-drag/
 ├── three-finger-drag.c
 ├── Makefile                      ← gcc, -O2 -Wall -Wextra, no -l flags
+├── README.md
+├── LICENSE
+├── docs/PLAN.md                  ← this file
 └── systemd/three-finger-drag.service
 ```
 

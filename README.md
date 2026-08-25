@@ -144,6 +144,12 @@ protocol rather than anything vendor-specific, so it should work on any touchpad
 three-finger reporting — but "should" is not "has been". Reports from other hardware,
 desktops, and distributions are welcome.
 
+## Design notes
+
+[`docs/PLAN.md`](docs/PLAN.md) records how this approach was chosen — what was measured on
+the target machine, why libinput 1.25 ruled out the native feature, why the desktop's own
+gesture system could not express a drag, and why the existing third-party tool was passed over.
+
 ## License
 
 MIT.
