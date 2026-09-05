@@ -159,6 +159,38 @@ protocol rather than anything vendor-specific, so it should work on any touchpad
 three-finger reporting — but "should" is not "has been". Reports from other hardware,
 desktops, and distributions are welcome.
 
+## Debugging your hardware
+
+Everything this daemon does is observable, so most hardware quirks can be diagnosed
+in minutes — by you, or by whatever LLM assistant you point at the problem:
+
+```bash
+sudo systemctl stop three-finger-drag   # free the stage
+sudo ./three-finger-drag --debug
+```
+
+That logs every touchpad it adopts (`using /dev/input/eventN (name), slots,
+units/mm`) and every state transition (`IDLE -> PENDING -> DRAGGING`) as you
+touch the pad. From there:
+
+- **Your touchpad is not adopted?** Look it up in `cat /proc/bus/input/devices`.
+  A usable pad must report `BTN_TOOL_TRIPLETAP`, `ABS_MT_SLOT`, and
+  `ABS_MT_POSITION_X/Y` — `evtest` (or `libinput record`) prints capabilities
+  in readable form. Some pads only report two fingers; those cannot do this gesture.
+- **Adopted, but no drag?** Watch the transitions while doing the gesture. If it
+  never leaves `IDLE`, the adopted node may be a decoy — some devices expose
+  several nodes and stream touches on only one, which is why all of them are watched.
+- **Wondering what the installed service sees?** Its log is in
+  `journalctl -u three-finger-drag`, and the devices it holds are visible with
+  `ls -l /proc/$(systemctl show -p MainPID --value three-finger-drag)/fd`.
+- **Do not trust device names.** Budget touchpads routinely present another
+  vendor's USB identity (see below); the capability bits are the only truth.
+
+If your hardware needs an actual code change: the entire tool is this one file,
+dependency-free and MIT-licensed. Paste it and your `--debug` output into your
+favorite LLM and you can likely have a patched build running the same day,
+without waiting for upstream. Reports (and patches) are still very welcome.
+
 ## Design notes
 
 [`docs/PLAN.md`](docs/PLAN.md) records how this approach was chosen — what was measured on
