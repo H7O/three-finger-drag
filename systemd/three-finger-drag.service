@@ -1,6 +1,6 @@
 [Unit]
 Description=macOS-style three-finger drag for the touchpad
-Documentation=https://github.com/-/three-finger-drag
+Documentation=https://github.com/H7O/three-finger-drag
 After=multi-user.target
 
 [Service]

@@ -1,15 +1,22 @@
 # three-finger-drag
 
-macOS-style three-finger drag for Linux touchpads, in ~650 lines of C with **no dependencies**.
+macOS-style three-finger drag for Linux touchpads, in ~780 lines of C with **no dependencies**.
 
 Put three fingers on the touchpad and move: the cursor drags. Lift them and put them
 back within a moment, and the drag carries on. It is the MacBook gesture, on Linux.
 
 ```
   /dev/input/eventN            this daemon               /dev/uinput
-  (real touchpad)     ──read──▶  state machine  ──write──▶  virtual pointer
+  (real touchpads)    ──read──▶  state machine  ──write──▶  virtual pointer
    MT slots, TRIPLETAP           centroid delta            REL_X/REL_Y + BTN_LEFT
 ```
+
+Every capable touchpad is watched at once, and hotplug is handled with inotify —
+plug a touchpad in and it works immediately, no restart. This matters more than it
+sounds: some touchpads expose *several* event nodes that all advertise multitouch,
+and only one of them actually carries the touches. (Generic pads that clone Apple's
+Magic Trackpad USB IDs are one example — the kernel binds two different drivers to
+them, giving two candidate nodes.) Watching them all sidesteps the guess.
 
 ## Do you need this?
 
@@ -93,7 +100,7 @@ That runs in the foreground and logs every state transition with timestamps.
 ## Options
 
 ```
--d, --device PATH      touchpad event device (default: autodetect)
+-d, --device PATH      watch only this event device (default: every capable touchpad)
 -s, --sensitivity N    cursor speed multiplier (default: 1.0)
 -t, --threshold N      mm of movement before a drag starts (default: 1.5)
 -g, --grace-ms N       keep dragging N ms after all fingers lift (default: 500)
@@ -132,7 +139,7 @@ requires it. The systemd unit is written so that root means as little as possibl
 empty capability bounding set, `DevicePolicy=closed` with only the two devices it needs,
 no network, read-only filesystem, syscall filtering.
 
-It reads **only the touchpad** — the device is selected by requiring three-finger
+It reads **only touchpads** — devices are selected by requiring three-finger
 multitouch capability, and keyboards do not have it. Resident footprint is about 250 KB.
 
 The alternative approach — adding your user to the `input` group — is not recommended:
@@ -140,8 +147,14 @@ that grants every process you run the ability to read every input device, keyboa
 
 ## Scope, honestly
 
-Developed and tested on one machine: an ELAN I²C touchpad under Linux Mint 22.3
-(Cinnamon 6.6.9, X11, kernel 7.0). The code targets the generic kernel multitouch
+Developed on an ELAN I²C touchpad under Linux Mint 22.3 (Cinnamon 6.6.9, X11,
+kernel 7.0); since verified on Ubuntu 24.04 with two external wired USB touchpads
+at once — a Perixx PERIPAD-501 II that identifies itself as a Logitech USB receiver
+(046d:c548), and a no-name pad that identifies itself as an Apple Magic Trackpad
+(05ac:0265). Neither is what it claims to be — budget touchpads routinely borrow a
+popular device's USB identity — which is exactly why this tool selects devices by
+their multitouch *capabilities* and never by name or vendor id.
+The code targets the generic kernel multitouch
 protocol rather than anything vendor-specific, so it should work on any touchpad with
 three-finger reporting — but "should" is not "has been". Reports from other hardware,
 desktops, and distributions are welcome.
