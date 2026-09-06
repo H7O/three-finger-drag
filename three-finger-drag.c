@@ -383,13 +383,9 @@ static void evaluate(struct tracker *t, struct touchpad *tp, struct vpointer *vp
     double cx, cy;
     centroid(t, tp->slot_count, &cx, &cy);
 
-    // Safety net: never hold the button indefinitely, whatever the fingers do.
-    if (vp->owner == t && vp->button_down && t->drag_started_ms &&
-        now - t->drag_started_ms > opt.max_drag_ms) {
-        warn("drag exceeded %d ms; releasing the button as a safety measure", opt.max_drag_ms);
-        end_drag(t, vp);
-        return;
-    }
+    // The max-drag safety net lives in check_deadline(), which runs on a timer
+    // rather than on events — a drag must not be able to outlive it just
+    // because the touchpad went quiet.
 
     switch (t->state) {
     case ST_IDLE:
@@ -460,21 +456,49 @@ static void evaluate(struct tracker *t, struct touchpad *tp, struct vpointer *vp
     }
 }
 
-// Called when poll() times out, so deadlines fire even with no new events.
+// Deadlines that have to fire without any further events from the touchpad.
+// Runs every time round the poll loop, so a held button cannot outlive its
+// limits merely because the device stopped talking.
 static void check_deadline(struct tracker *t, struct vpointer *vp)
 {
+    if (t->state != ST_DRAGGING && t->state != ST_LINGER) return;
+
+    long now = now_ms();
+
+    // Safety net: never hold the button indefinitely, whatever the fingers do.
+    if (t->drag_started_ms && now - t->drag_started_ms > opt.max_drag_ms) {
+        warn("drag exceeded %d ms; releasing the button as a safety measure", opt.max_drag_ms);
+        end_drag(t, vp);
+        return;
+    }
+
     if (t->state != ST_LINGER) return;
-    if (now_ms() < t->linger_deadline_ms) return;
+    if (now < t->linger_deadline_ms) return;
 
     dbg("linger expired with %d finger(s) after %ld ms of drag; ending",
-        t->linger_fingers, now_ms() - t->drag_started_ms);
+        t->linger_fingers, now - t->drag_started_ms);
     end_drag(t, vp);
 }
 
+// How long poll() may sleep before check_deadline() has work to do.
+// -1 means nothing is pending, so sleep until an event arrives.
 static int poll_timeout(const struct tracker *t)
 {
-    if (t->state != ST_LINGER) return -1;
-    long remaining = t->linger_deadline_ms - now_ms();
+    long deadline = -1;
+
+    // A held button always has a hard expiry, even mid-movement. Without this
+    // the safety net would be unreachable for a pad that fell silent while
+    // dragging, because poll() would have no reason to wake.
+    if (t->state == ST_DRAGGING || t->state == ST_LINGER)
+        deadline = t->drag_started_ms + opt.max_drag_ms;
+
+    if (t->state == ST_LINGER &&
+        (deadline < 0 || t->linger_deadline_ms < deadline))
+        deadline = t->linger_deadline_ms;
+
+    if (deadline < 0) return -1;
+
+    long remaining = deadline - now_ms();
     return remaining <= 0 ? 0 : (int)remaining;
 }
 
@@ -544,7 +568,16 @@ static void pad_add(const char *path)
     struct pad *p = NULL;
     for (int i = 0; i < MAX_PADS; i++)
         if (g_pads[i].tp.fd < 0) { p = &g_pads[i]; break; }
-    if (!p) { warn("more than %d touchpads; ignoring %s", MAX_PADS, path); return; }
+    if (!p) {
+        // Say this once: rescans would otherwise repeat it on every hotplug.
+        static bool warned_full = false;
+        if (!warned_full) {
+            warn("already watching the maximum of %d touchpads; ignoring %s and any further ones",
+                 MAX_PADS, path);
+            warned_full = true;
+        }
+        return;
+    }
 
     if (!touchpad_try_open(&p->tp, path)) return;
 
@@ -663,12 +696,14 @@ int main(int argc, char **argv)
     // Watch /dev/input so touchpads plugged in later are picked up at once.
     // Without inotify we fall back to a rescan every couple of seconds.
     int ifd = inotify_init1(IN_NONBLOCK | IN_CLOEXEC);
+    int ifd_errno = ifd < 0 ? errno : 0;
     if (ifd >= 0 && inotify_add_watch(ifd, "/dev/input",
                                       IN_CREATE | IN_DELETE | IN_ATTRIB) < 0) {
+        ifd_errno = errno;   // capture it: close() is free to clobber errno
         close(ifd);
         ifd = -1;
     }
-    if (ifd < 0) dbg("inotify unavailable (%s); using periodic rescans", strerror(errno));
+    if (ifd < 0) dbg("inotify unavailable (%s); using periodic rescans", strerror(ifd_errno));
 
     pads_rescan();
     bool warned_no_pad = false;
